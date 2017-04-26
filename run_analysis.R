@@ -1,63 +1,87 @@
+
 rm(list=ls())
 library(dplyr)
+library(data.table)
 
-# Open data
-x_test <- read.table("/Users/YJL/Google 드라이브/My R/UCI HAR Dataset/test/X_test.txt")
-y_test <- read.table("/Users/YJL/Google 드라이브/My R/UCI HAR Dataset/test/y_test.txt")
-s_test <- read.table("/Users/YJL/Google 드라이브/My R/UCI HAR Dataset/test/subject_test.txt")
 
-x_train <- read.table("/Users/YJL/Google 드라이브/My R/UCI HAR Dataset/train/X_train.txt")
-y_train <- read.table("/Users/YJL/Google 드라이브/My R/UCI HAR Dataset/train/y_train.txt")
-s_train <- read.table("/Users/YJL/Google 드라이브/My R/UCI HAR Dataset/train/subject_train.txt")
+# 1 Open data
 
-feature <- read.table("/Users/YJL/Google 드라이브/My R/UCI HAR Dataset/features.txt")
-label <- read.table("/Users/YJL/Google 드라이브/My R/UCI HAR Dataset/activity_labels.txt")
+featuresTest <- read.table("/Users/YJL/Google 드라이브/My R/UCI HAR Dataset/test/x_test.txt")
+activityTest <- read.table("/Users/YJL/Google 드라이브/My R/UCI HAR Dataset/test/y_test.txt")
+subjectTest <- read.table("/Users/YJL/Google 드라이브/My R/UCI HAR Dataset/test/subject_test.txt")
 
-# Open data
-x_test <- read.table("/Users/YJL/Google 드라이브/My R/UCI HAR Dataset/test/X_test.txt")
-y_test <- read.table("/Users/YJL/Google 드라이브/My R/UCI HAR Dataset/test/y_test.txt")
-s_test <- read.table("/Users/YJL/Google 드라이브/My R/UCI HAR Dataset/test/subject_test.txt")
+featuresTrain <- read.table("/Users/YJL/Google 드라이브/My R/UCI HAR Dataset/train/x_train.txt")
+activityTrain <- read.table("/Users/YJL/Google 드라이브/My R/UCI HAR Dataset/train/y_train.txt")
+subjectTrain <- read.table("/Users/YJL/Google 드라이브/My R/UCI HAR Dataset/train/subject_train.txt")
 
-x_train <- read.table("/Users/YJL/Google 드라이브/My R/UCI HAR Dataset/train/X_train.txt")
-y_train <- read.table("/Users/YJL/Google 드라이브/My R/UCI HAR Dataset/train/y_train.txt")
-s_train <- read.table("/Users/YJL/Google 드라이브/My R/UCI HAR Dataset/train/subject_train.txt")
+featureNames <- read.table("/Users/YJL/Google 드라이브/My R/UCI HAR Dataset/features.txt")
+activityLabels <- read.table("/Users/YJL/Google 드라이브/My R/UCI HAR Dataset/activity_labels.txt")
 
-feature <- read.table("/Users/YJL/Google 드라이브/My R/UCI HAR Dataset/features.txt")
-label <- read.table("/Users/YJL/Google 드라이브/My R/UCI HAR Dataset/activity_labels.txt")
+# 2 Merge the training and the test sets to create one data set
+
+subject <- rbind(subjectTrain, subjectTest)
+activity <- rbind(activityTrain, activityTest)
+features <- rbind(featuresTrain, featuresTest)
 
 
 
-# 1. Merges the training and the test sets to create one data set.
-x <- rbind(x_test, x_train)
-y <- rbind(y_test, y_train)
-s <- rbind(s_test, s_train)
+colnames(features) <- t(featureNames[2])
 
-# naming
-names(x) <- feature[[2]]
-names(y) <- "Activity"
-names(s) <- "Subject"
+colnames(activity) <- "Activity"
+colnames(subject) <- "Subject"
+completeData <- cbind(features,activity,subject)
 
-# merge data
-m <- cbind(s,y,x)
+# 3 Extracts only the measurements on the mean and standard deviation for each measurement
 
 
-# 2. Extracts only the measurements on the mean and standard deviation for each measurement.
-extract <- grep("[Mm]ean|[Ss]td",names(m))
-extract <- c(1, 2, extract)
-e_m <- m[,extract]
+columnsWithMeanSTD <- grep(".*Mean.*|.*Std.*", names(completeData), ignore.case=TRUE)
 
 
-# 3. Uses descriptive activity names to name the activities in the data set
-e_m <- mutate(e_m, Activity=factor(Activity, labels=c("WALKING", "WALKING_UPSTAIRS", "WALKING_DOWNSTAIRS", "SITTING", "STANDING", "LAYING")))
+requiredColumns <- c(columnsWithMeanSTD, 562, 563)
+dim(completeData)
 
 
-# 4. Appropriately labels the data set with descriptive variable names.
-names(e_m) <- gsub("^t", "Time", names(e_m))
-names(e_m) <- gsub("^f", "Frequency", names(e_m))
-names(e_m) <- gsub("BodyBody", "Body", names(e_m))
+
+extractedData <- completeData[,requiredColumns]
+dim(extractedData)
+
+# 4 Uses descriptive activity names to name the activities in the data set
+
+extractedData$Activity <- as.character(extractedData$Activity)
+for (i in 1:6){
+extractedData$Activity[extractedData$Activity == i] <- as.character(activityLabels[i,2])
+}
 
 
-# 5. From the data set in step 4, creates a second, independent tidy data set with the average of each variable for each activity and each subject.
 
-tidy <- aggregate(.~Subject + Activity, e_m, mean)
-write.table(tidy,"~/Desktop/output.txt", row.names=F)
+extractedData$Activity <- as.factor(extractedData$Activity
+
+# 5 Appropriately labels the data set with descriptive variable names
+
+names(extractedData)
+
+
+names(extractedData)<-gsub("Acc", "Accelerometer", names(extractedData))
+names(extractedData)<-gsub("Gyro", "Gyroscope", names(extractedData))
+names(extractedData)<-gsub("BodyBody", "Body", names(extractedData))
+names(extractedData)<-gsub("Mag", "Magnitude", names(extractedData))
+names(extractedData)<-gsub("^t", "Time", names(extractedData))
+names(extractedData)<-gsub("^f", "Frequency", names(extractedData))
+names(extractedData)<-gsub("tBody", "TimeBody", names(extractedData))
+names(extractedData)<-gsub("-mean()", "Mean", names(extractedData), ignore.case = TRUE)
+names(extractedData)<-gsub("-std()", "STD", names(extractedData), ignore.case = TRUE)
+names(extractedData)<-gsub("-freq()", "Frequency", names(extractedData), ignore.case = TRUE)
+names(extractedData)<-gsub("angle", "Angle", names(extractedData))
+names(extractedData)<-gsub("gravity", "Gravity", names(extractedData))
+
+
+names(extractedData)
+
+# Creates a second, independent tidy data set with the average of each variable for each activity and each subject
+extractedData$Subject <- as.factor(extractedData$Subject)
+extractedData <- data.table(extractedData)
+
+
+tidyData <- aggregate(. ~Subject + Activity, extractedData, mean)
+tidyData <- tidyData[order(tidyData$Subject,tidyData$Activity),]
+write.table(tidyData, file = "Tidy.txt", row.names = FALSE)
